@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Currículo Eficaz</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #34495e;
+            --bg-color: #f4f7f6;
+            --paper-width: 210mm;
+            --paper-height: 297mm;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        body { background-color: var(--bg-color); display: flex; height: 100vh; overflow: hidden; }
+
+        /* PAINEL DE EDIÇÃO (Esquerda) */
+        .editor-panel {
+            width: 40%;
+            padding: 2rem;
+            background: white;
+            border-right: 1px solid #ddd;
+            overflow-y: auto;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        }
+
+        h2 { margin-bottom: 1rem; color: var(--primary-color); margin-top: 2rem; font-size: 1.2rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+        h2:first-child { margin-top: 0; }
+        
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #555; }
+        input, textarea {
+            width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 0.9rem; transition: border 0.3s;
+        }
+        input:focus, textarea:focus { border-color: var(--primary-color); outline: none; }
+        textarea { resize: vertical; min-height: 80px; }
+        
+        .btn-add {
+            background: var(--primary-color); color: white; border: none; padding: 0.5rem 1rem;
+            cursor: pointer; border-radius: 4px; font-size: 0.8rem; margin-top: 0.5rem; display: block;
+        }
+        .btn-print {
+            background: #27ae60; color: white; border: none; padding: 1rem; width: 100%;
+            font-size: 1rem; font-weight: bold; cursor: pointer; border-radius: 4px; margin-top: 2rem; margin-bottom: 2rem;
+        }
+
+        /* PRÉ-VISUALIZAÇÃO (Direita) */
+        .preview-panel {
+            width: 60%;
+            background: #525659;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+            overflow-y: auto;
+        }
+
+        /* FOLHA A4 */
+        #resume-paper {
+            background: white;
+            width: var(--paper-width);
+            min-height: var(--paper-height);
+            padding: 2.5cm; /* Margens padrão */
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            color: #333;
+            line-height: 1.6;
+        }
+
+        /* ESTILOS DO CURRÍCULO (O que vai ser impresso) */
+        #resume-header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+        #resume-name { font-size: 24pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        #resume-contact { font-size: 10pt; margin-top: 0.5rem; }
+        
+        .resume-section { margin-bottom: 1.2rem; }
+        .resume-section-title {
+            font-size: 12pt; font-weight: bold; text-transform: uppercase;
+            border-bottom: 1px solid #ccc; margin-bottom: 0.8rem; padding-bottom: 0.2rem;
+        }
+        
+        .job-entry, .edu-entry, .course-entry { margin-bottom: 0.8rem; }
+        .entry-header { display: flex; justify-content: space-between; font-weight: bold; }
+        .entry-subtitle { font-style: italic; font-size: 0.95em; }
+        .entry-content { font-size: 0.95em; text-align: justify; margin-top: 0.3rem; }
+        
+        /* Oculta seções vazias na impressão */
+        .hidden-empty:empty { display: none; }
+        .resume-section:has(.hidden-empty:empty) { display: none; }
+
+        /* MODO DE IMPRESSÃO */
+        @media print {
+            body { display: block; background: white; height: auto; overflow: visible; }
+            .editor-panel { display: none; }
+            .preview-panel { width: 100%; padding: 0; background: white; display: block; }
+            #resume-paper { box-shadow: none; width: 100%; margin: 0; padding: 2cm; }
+        }
+    </style>
+    <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2c3e50">
+<link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+
+    <div class="editor-panel">
+        <h2>Informações Pessoais</h2>
+        <div class="form-group">
+            <label>Nome Completo</label>
+            <input type="text" id="input-name" placeholder="Ex: João da Silva" oninput="updateResume()">
+        </div>
+        <div class="form-group">
+            <label>Subtítulo / Área de Atuação</label>
+            <input type="text" id="input-role" placeholder="Ex: Desenvolvedor Full Stack" oninput="updateResume()">
+        </div>
+        <div class="form-group">
+            <label>Contatos (Telefone, Email, LinkedIn, Cidade)</label>
+            <input type="text" id="input-contact" placeholder="Ex: (11) 9999-9999 | email@exemplo.com | São Paulo, SP" oninput="updateResume()">
+        </div>
+
+        <h2>Resumo Profissional</h2>
+        <div class="form-group">
+            <textarea id="input-summary" placeholder="Resumo de 3-4 linhas focado em resultados..." oninput="updateResume()"></textarea>
+        </div>
+
+        <h2>Experiência Profissional</h2>
+        <div id="experience-list"></div>
+        <button class="btn-add" onclick="addExperience()">+ Adicionar Experiência</button>
+
+        <h2>Educação</h2>
+        <div id="education-list"></div>
+        <button class="btn-add" onclick="addEducation()">+ Adicionar Formação</button>
+
+        <h2>Cursos e Certificações</h2>
+        <div id="courses-list"></div>
+        <button class="btn-add" onclick="addCourse()">+ Adicionar Curso</button>
+
+        <button class="btn-print" onclick="window.print()">🖨️ Salvar como PDF</button>
+    </div>
+
+    <div class="preview-panel">
+        <div id="resume-paper">
+            <header id="resume-header">
+                <div id="resume-name">SEU NOME AQUI</div>
+                <div style="font-size: 1.1em; margin-bottom: 0.5rem;" id="resume-role-display">Sua Área de Atuação</div>
+                <div id="resume-contact-display">Seus contatos aparecerão aqui</div>
+            </header>
+
+            <section class="resume-section">
+                <div class="resume-section-title">Resumo Profissional</div>
+                <div id="resume-summary-display">Escreva seu resumo ao lado...</div>
+            </section>
+
+            <section class="resume-section">
+                <div class="resume-section-title">Experiência</div>
+                <div id="resume-experience-display" class="hidden-empty"></div>
+            </section>
+
+            <section class="resume-section">
+                <div class="resume-section-title">Formação Acadêmica</div>
+                <div id="resume-education-display" class="hidden-empty"></div>
+            </section>
+
+            <section class="resume-section">
+                <div class="resume-section-title">Cursos Extracurriculares</div>
+                <div id="resume-courses-display" class="hidden-empty"></div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // --- Atualização em Tempo Real ---
+        function updateResume() {
+            // Dados Pessoais
+            document.getElementById('resume-name').innerText = document.getElementById('input-name').value || 'SEU NOME';
+            document.getElementById('resume-role-display').innerText = document.getElementById('input-role').value;
+            document.getElementById('resume-contact-display').innerText = document.getElementById('input-contact').value;
+            document.getElementById('resume-summary-display').innerText = document.getElementById('input-summary').value;
+
+            // Renderização das Listas
+            renderList('experience-list', 'resume-experience-display', 'job-entry');
+            renderList('education-list', 'resume-education-display', 'edu-entry');
+            renderList('courses-list', 'resume-courses-display', 'course-entry');
+        }
+
+        // --- Renderizador Genérico ---
+        function renderList(inputId, outputId, entryClass) {
+            const container = document.getElementById(inputId);
+            const output = document.getElementById(outputId);
+            output.innerHTML = ''; 
+
+            const items = container.querySelectorAll('.dynamic-item');
+            
+            items.forEach(item => {
+                // Pega os valores dos inputs (f1, f2, f3, f4)
+                const f1 = item.querySelector('.f1')?.value || '';
+                const f2 = item.querySelector('.f2')?.value || '';
+                const f3 = item.querySelector('.f3')?.value || '';
+                const f4 = item.querySelector('.f4')?.value || '';
+
+                if(f1 || f2) {
+                    const div = document.createElement('div');
+                    div.className = entryClass;
+                    
+                    // Lógica de Layout para cada tipo
+                    if (inputId === 'experience-list') {
+                        div.innerHTML = `
+                            <div class="entry-header"><span>${f1}</span><span>${f3}</span></div>
+                            <div class="entry-subtitle">${f2}</div>
+                            <div class="entry-content">${f4.replace(/\n/g, '<br>')}</div>
+                        `;
+                    } else if (inputId === 'education-list') {
+                        div.innerHTML = `
+                            <div class="entry-header"><span>${f1}</span><span>${f3}</span></div>
+                            <div class="entry-subtitle">${f2}</div>
+                        `;
+                    } else if (inputId === 'courses-list') {
+                        // Layout específico para cursos (mais compacto)
+                        div.innerHTML = `
+                            <div style="display:flex; justify-content:space-between;">
+                                <strong>${f1}</strong>
+                                <span>${f3}</span>
+                            </div>
+                            <div>${f2}</div>
+                        `;
+                    }
+                    output.appendChild(div);
+                }
+            });
+        }
+
+        // --- Adicionar Itens ---
+        
+        function addExperience() {
+            createItem('experience-list', 
+                'Cargo', 'Empresa', 'Período (Ex: 2020-2022)', true);
+        }
+
+        function addEducation() {
+            createItem('education-list', 
+                'Curso / Graduação', 'Instituição de Ensino', 'Ano de Conclusão', false);
+        }
+
+        // NOVA FUNÇÃO
+        function addCourse() {
+            createItem('courses-list', 
+                'Nome do Curso', 'Plataforma / Instituição', 'Carga Horária / Ano', false);
+        }
+
+        // Criador genérico de inputs
+        function createItem(containerId, ph1, ph2, ph3, hasTextArea) {
+            const div = document.createElement('div');
+            div.className = 'dynamic-item form-group';
+            div.style.borderLeft = "3px solid var(--primary-color)";
+            div.style.paddingLeft = "10px";
+            
+            let html = `
+                <input type="text" class="f1" placeholder="${ph1}" oninput="updateResume()" style="margin-bottom:5px">
+                <input type="text" class="f2" placeholder="${ph2}" oninput="updateResume()" style="margin-bottom:5px">
+                <input type="text" class="f3" placeholder="${ph3}" oninput="updateResume()" style="margin-bottom:5px">
+            `;
+            
+            if(hasTextArea) {
+                html += `<textarea class="f4" placeholder="Detalhes..." oninput="updateResume()"></textarea>`;
+            }
+
+            html += `<button onclick="this.parentElement.remove(); updateResume()" style="color:red; background:none; border:none; cursor:pointer; font-size:0.8rem; margin-top:5px;">Remover item</button>`;
+            
+            div.innerHTML = html;
+            document.getElementById(containerId).appendChild(div);
+        }
+
+        // Inicializa com um de cada para o usuário ver
+        addExperience();
+        addEducation();
+        addCourse();
+    </script>
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then((reg) => console.log('Service Worker registrado!', reg))
+                .catch((err) => console.log('Falha ao registrar SW:', err));
+        });
+    }
+</script>
+</body>
+</body>
+</html>
